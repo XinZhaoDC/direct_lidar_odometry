@@ -1,0 +1,72 @@
+
+<launch>
+<!-- Launch file for Livox MID360 LiDAR -->
+  <arg name="autorun"     default="false"/>
+  <arg name="bag_file"  default="/home/workspace/data/Shenkan_MLS.bag"/>
+
+  <arg name="robot_namespace" default="robot"/>
+  <arg name="rviz" default="true"/>
+
+  <arg name="input_pointcloud_topic" default="/quad0_pcl_render_node/sensor_cloud"/>
+  <arg name="input_imu_topic" default="/quad_0/imu"/>
+
+  <arg name="output_frame_body_cloud_topic" default="/frame_body_cloud"/>
+  <arg name="output_frame_body_odom_topic" default="/frame_body_odom"/>
+
+
+
+  <!-- DLO Odometry Node -->
+  <node ns="$(arg robot_namespace)" name="dlo_odom" pkg="direct_lidar_odometry" type="dlo_odom_node" output="screen" clear_params="true">
+
+    <!-- Load parameters -->
+    <rosparam file="$(find direct_lidar_odometry)/cfg/dlo.yaml" command="load"/>
+    <rosparam file="$(find direct_lidar_odometry)/cfg/params.yaml" command="load"/>
+    <!-- Subscriptions -->
+    <remap from="~pointcloud" to="$(arg input_pointcloud_topic)"/>
+    <remap from="~imu" to="$(arg input_imu_topic)"/>
+
+    <!-- Publications -->
+    <remap from="~odom" to="dlo/odom_node/odom"/>
+    <remap from="~pose" to="dlo/odom_node/pose"/>
+    <remap from="~kfs" to="dlo/odom_node/odom/keyframe"/>
+    <remap from="~keyframe" to="dlo/odom_node/pointcloud/keyframe"/>
+    <remap from="~frame_body_cloud" to="$(arg output_frame_body_cloud_topic)"/>
+    <remap from="~fb_odom" to="$(arg output_frame_body_odom_topic)"/>
+
+  </node>
+
+  <!-- generate block -->
+    <!--param name="image_msg_name"  type="string"   value="/camera0/compressed"/-->
+      <!-- Load parameters -->
+    <rosparam file="$(find direct_lidar_odometry)/cfg/dlo.yaml" command="load"/>
+    <param name="lidar_msg_name"  type="string"   value="$(arg output_frame_body_cloud_topic)"/>
+    <param name="odometry_msg_name"  type="string"   value="$(arg output_frame_body_odom_topic)"/>
+    <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
+  <node pkg="direct_lidar_odometry" type="generate_block" name="generate_block" output="screen"/>
+
+  <!-- DLO Mapping Node -->
+  <node ns="$(arg robot_namespace)" name="dlo_map" pkg="direct_lidar_odometry" type="dlo_map_node" output="screen" clear_params="true">
+
+    <!-- Load parameters -->
+    <rosparam file="$(find direct_lidar_odometry)/cfg/dlo.yaml" command="load"/>
+
+    <!-- Subscriptions -->
+    <remap from="~keyframes" to="dlo/odom_node/pointcloud/keyframe"/>
+
+    <!-- Publications -->
+    <remap from="~map" to="dlo/map_node/map"/>
+
+  </node>
+
+  <!-- RViz -->
+  <node pkg="rviz" type="rviz" name="dlo_rviz" args="-d $(find direct_lidar_odometry)/launch/dlo.rviz"/>
+
+  <group if="$(arg autorun)">
+  <node  pkg="rosbag" type="play" name="rosbag_player"
+          args="--clock $(arg bag_file) -r 2.0 -s 0"
+          launch-prefix="bash -c 'sleep 1; $0 $@' "/>
+  </group>
+
+  
+
+</launch>

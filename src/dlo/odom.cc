@@ -37,6 +37,9 @@ dlo::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->keyframe_pub = this->nh.advertise<sensor_msgs::PointCloud2>("keyframe", 1, true);
   this->save_traj_srv = this->nh.advertiseService("save_traj", &dlo::OdomNode::saveTrajectory, this);
 
+  this->frame_body_pub = this->nh.advertise<sensor_msgs::PointCloud2>("frame_body_cloud", 1, true);
+  this->fb_odom_pub = this->nh.advertise<nav_msgs::Odometry>("fb_odom", 1, true);
+
   this->odom.pose.pose.position.x = 0.;
   this->odom.pose.pose.position.y = 0.;
   this->odom.pose.pose.position.z = 0.;
@@ -407,6 +410,36 @@ void dlo::OdomNode::publishTransform() {
 }
 
 
+/*
+ publish frame_body and odom
+*/
+void dlo::OdomNode::publish_frame_body_and_odom(){
+  // Publish frame_body scan and odom
+  if (this->current_scan->points.size() == this->current_scan->width * this->current_scan->height) {
+    this->fb_odom.header.stamp = this->scan_stamp;
+    this->fb_odom.header.frame_id = this->odom_frame;
+    this->fb_odom.child_frame_id = this->child_frame;
+
+    this->fb_odom.pose.pose.position.x = this->pose[0];
+    this->fb_odom.pose.pose.position.y = this->pose[1];
+    this->fb_odom.pose.pose.position.z = this->pose[2];
+
+    this->fb_odom.pose.pose.orientation.w = this->rotq.w();
+    this->fb_odom.pose.pose.orientation.x = this->rotq.x();
+    this->fb_odom.pose.pose.orientation.y = this->rotq.y();
+    this->fb_odom.pose.pose.orientation.z = this->rotq.z();
+
+    this->fb_odom_pub.publish(this->fb_odom);
+    
+    sensor_msgs::PointCloud2 frame_body_cloud_ros;
+    pcl::toROSMsg(*this->current_scan, frame_body_cloud_ros);
+    frame_body_cloud_ros.header.stamp = this->scan_stamp;
+    frame_body_cloud_ros.header.frame_id = this->odom_frame;
+    this->frame_body_pub.publish(frame_body_cloud_ros);
+  }
+  return ;
+}
+
 /**
  * Publish Keyframe Pose and Scan
  **/
@@ -507,6 +540,9 @@ void dlo::OdomNode::initializeInputTarget() {
   this->publish_keyframe_thread = std::thread( &dlo::OdomNode::publishKeyframe, this );
   this->publish_keyframe_thread.detach();
 
+  // publish first frame
+  this->publish_frame_body_and_odom();
+
   ++this->num_keyframes;
 
 }
@@ -557,7 +593,8 @@ void dlo::OdomNode::gravityAlign() {
 
   // define gravity vector (assume point downwards)
   Eigen::Vector3f grav;
-  grav << 0, 0, 1;
+  //grav << 0, 0, 1;
+  grav << 0, 0, -1;
 
   // calculate angle between the two vectors
   Eigen::Quaternionf grav_q = Eigen::Quaternionf::FromTwoVectors(lin_accel, grav);
@@ -678,6 +715,9 @@ void dlo::OdomNode::icpCB(const sensor_msgs::PointCloud2ConstPtr& pc) {
 
   // Get the next pose via IMU + S2S + S2M
   this->getNextPose();
+
+  // publish odom and pointcloud_body
+  this->publish_frame_body_and_odom();
 
   // Update current keyframe poses and map
   this->updateKeyframes();

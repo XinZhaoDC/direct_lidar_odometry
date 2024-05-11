@@ -46,7 +46,7 @@ dlo:
         kcc: 10
 
     imu:
-      calibTime: 3
+      calibTime: 5 #3
       bufferSize: 2000
 
     gicp:

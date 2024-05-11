@@ -38,6 +38,8 @@ private:
   void publishTransform();
   void publishKeyframe();
 
+  void publish_frame_body_and_odom();
+
   void preprocessPoints();
   void initializeInputTarget();
   void setInputSources();
@@ -79,6 +81,9 @@ private:
   ros::Publisher pose_pub;
   ros::Publisher keyframe_pub;
   ros::Publisher kf_pub;
+
+  ros::Publisher frame_body_pub;
+  ros::Publisher fb_odom_pub;
 
   Eigen::Vector3f origin;
   std::vector<std::pair<Eigen::Vector3f, Eigen::Quaternionf>> trajectory;
@@ -129,6 +134,8 @@ private:
 
   nav_msgs::Odometry odom;
   nav_msgs::Odometry kf;
+  
+  nav_msgs::Odometry fb_odom;
 
   geometry_msgs::PoseStamped pose_ros;
 

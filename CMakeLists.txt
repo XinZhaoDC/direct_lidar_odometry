@@ -38,9 +38,11 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   sensor_msgs
+  nav_msgs
   geometry_msgs
   pcl_ros
   message_generation
+  eigen_conversions
 )
 
 add_service_files(
@@ -57,6 +59,7 @@ catkin_package(
     roscpp
     std_msgs
     sensor_msgs
+    # nav_msgs
     geometry_msgs
     pcl_ros
   INCLUDE_DIRS
@@ -74,7 +77,7 @@ file(WRITE ${CMAKE_BINARY_DIR}/test_cpuid.cpp "#include <cpuid.h>")
 try_compile(HAS_CPUID ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/test_cpuid.cpp)
 file(REMOVE ${CMAKE_BINARY_DIR}/test_cpuid.cpp)
 if(HAS_CPUID)
-  add_compile_definitions(HAS_CPUID)
+ # add_compile_definitions(HAS_CPUID)
 endif()
 
 # NanoFLANN
@@ -104,3 +107,7 @@ add_dependencies(dlo_map_node ${catkin_EXPORTED_TARGETS})
 target_compile_options(dlo_map_node PRIVATE ${OpenMP_FLAGS})
 target_link_libraries(dlo_map_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads)
 
+# generate_block node
+add_executable(generate_block src/generate_block/generate_block.cpp)
+target_include_directories(generate_block PRIVATE ${catkin_INCLUDE_DIRS})
+target_link_libraries(generate_block ${catkin_LIBRARIES} ${PCL_LIBRARIES})
