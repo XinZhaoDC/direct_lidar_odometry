@@ -46,8 +46,9 @@ dlo:
         kcc: 10
 
     imu:
-      calibTime: 5 #3
+      calibTime: 4 #3
       bufferSize: 2000
+      alignTime: 2
 
     gicp:
       minNumPoints: 10

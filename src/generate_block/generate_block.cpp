@@ -17,11 +17,13 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/common/transforms.h>
 
-std::string lidar_topic,odometry_topic,dataFolder;
+std::string lidar_topic,odometry_topic,ground_truth_odom_topic,dataFolder,groundTruthName;
 bool pcd_save;
+//bool transform;
 
 std::queue<nav_msgs::Odometry::ConstPtr> odom_buf;
 std::queue<sensor_msgs::PointCloud2::ConstPtr> pcl_buf;
+std::queue<nav_msgs::Odometry::ConstPtr> ground_truth_odom_buf;
 std::mutex bufMutex;
 
 void pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) 
@@ -38,6 +40,42 @@ void odom_cbk(const nav_msgs::Odometry::ConstPtr &msg)
     // ROS_INFO("receive odometry");
     odom_buf.push(msg);
     bufMutex.unlock();
+}
+
+void ground_truth_odom_cbk(const nav_msgs::Odometry::ConstPtr &msg){
+
+    //double currentTime = msg->header.stamp.toSec();
+    //char odomFileName[256];
+
+    //uint sec = currentTime;
+    //uint nsec = (currentTime-sec)*1e9;
+
+    // must use the format of sec_nsec
+    //sprintf(odomFileName,"%s/%d_%d.odom",groundTruthFolder.c_str(),sec,nsec);
+
+    Eigen::Quaterniond ref_q;
+    Eigen::Vector3d ref_t(msg->pose.pose.position.x,msg->pose.pose.position.y,msg->pose.pose.position.z);
+
+    ref_q.x() = msg->pose.pose.orientation.x;
+    ref_q.y() = msg->pose.pose.orientation.y;
+    ref_q.z() = msg->pose.pose.orientation.z;
+    ref_q.w() = msg->pose.pose.orientation.w;
+  
+    Eigen::Matrix3d rot = ref_q.toRotationMatrix();
+
+    // save pose
+    if(pcd_save){
+        FILE *fp = fopen(groundTruthName.c_str(),"a+");
+        /*fprintf(fp,"%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n 0 0 0 1",
+                rot(0,0),rot(0,1),rot(0,2),ref_t(0),
+                rot(1,0),rot(1,1),rot(1,2),ref_t(1),
+                rot(2,0),rot(2,1),rot(2,2),ref_t(2));*/
+        fprintf(fp,"%f %f %f %f %f %f %f %f %f %f %f %f\n",
+                ref_t(0),ref_t(1),ref_t(2),ref_q.x(),ref_q.y(),ref_q.z(),ref_q.w());
+        fflush(fp);
+        fclose(fp);
+    }
+
 }
 
 
@@ -76,6 +114,7 @@ void transformAndOutput(std::vector<nav_msgs::Odometry> currentOdoMsg,
                     rot(0,0),rot(0,1),rot(0,2),ref_t(0),
                     rot(1,0),rot(1,1),rot(1,2),ref_t(1),
                     rot(2,0),rot(2,1),rot(2,2),ref_t(2));
+            fflush(fp);
             fclose(fp);
         }
         
@@ -121,25 +160,28 @@ void process()
     while (ros::ok()) {
         bufMutex.lock();///lock before access Buf
 
-        if (!odom_buf.empty() && !pcl_buf.empty())
-        {  
+        if (!odom_buf.empty() && !pcl_buf.empty()){  
 
             currentOdoMsg.push_back(*odom_buf.front());
             odom_buf.pop();
             currentPclMsg.push_back(*pcl_buf.front());
             pcl_buf.pop();
 
-            // next image
+        // next image
             if(currentOdoMsg.size() >= 10)
             {
-                // save process
-                transformAndOutput(currentOdoMsg,currentPclMsg);
-                currentOdoMsg.clear();
-                currentPclMsg.clear();
+               // save process
+               transformAndOutput(currentOdoMsg,currentPclMsg);
+               currentOdoMsg.clear();
+               currentPclMsg.clear();
             }
+            
         }
+
+        
         bufMutex.unlock();
         rate.sleep();
+            
     }
 }
 
@@ -151,15 +193,25 @@ int main(int argc, char** argv)
     nh.param<std::string>("lidar_msg_name",lidar_topic, "/cloud_registered_body");
     nh.param<std::string>("odometry_msg_name",odometry_topic, "/Odometry"); 
     nh.param<std::string>("dataFolder",dataFolder, "/home/iot/workspace/data/frames");
-    nh.param<bool>("dlo/pcd_save",pcd_save,false);
+    nh.param<std::string>("ground_truth_odom_msg_name",ground_truth_odom_topic, "/lidar_slam/odom"); 
+    nh.param<std::string>("groundTruthName",groundTruthName, "/home/iot/workspace/data/ground_truth.odom");
+    //nh.param<bool>("dlo/pcd_save",pcd_save,false);
+    nh.param<bool>("pcd_save",pcd_save,true);
+    //nh.param<bool>("transform",transform,false);
 
     if(!boost::filesystem::exists(dataFolder))
     {
         boost::filesystem::create_directories(dataFolder);
     }
 
+    /*if(!boost::filesystem::exists(groundTruthFolder))
+    {
+        boost::filesystem::create_directories(groundTruthFolder);
+    }*/
+
     ros::Subscriber sub_pcl = nh.subscribe(lidar_topic, 200000, pcl_cbk);
     ros::Subscriber sub_odom = nh.subscribe(odometry_topic, 200000, odom_cbk);
+    ros::Subscriber sub_ground_truth_odom=nh.subscribe(ground_truth_odom_topic, 200000, ground_truth_odom_cbk);
 
     std::thread thread_process{process};
     ros::spin();

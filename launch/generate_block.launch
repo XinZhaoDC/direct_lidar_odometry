@@ -1,0 +1,11 @@
+<launch>
+   <arg name="bag_file"  default="/home/workspace/data/hangar.bag"/>
+   
+      <param name="pcd_save"  type="bool"   value = "true"/>
+      <param name="transform"  type="bool"   value = "false"/>
+      <param name="lidar_msg_name"  type="string"   value="/quad0_pcl_render_node/cloud"/>
+      <param name="odometry_msg_name"  type="string"   value="/quad_0/imu"/>
+      <param name="dataFolder"  type="string"   value="$(arg bag_file)_gt_frames"/>
+   <node pkg="direct_lidar_odometry" type="generate_block" name="generate_block" output="screen"/>
+
+</launch>

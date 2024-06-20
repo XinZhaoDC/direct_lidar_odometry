@@ -245,8 +245,9 @@ void dlo::OdomNode::getParams() {
 
   // IMU
   ros::param::param<bool>("~dlo/imu", this->imu_use_, false);
-  ros::param::param<int>("~dlo/odomNode/imu/calibTime", this->imu_calib_time_, 3);
+  ros::param::param<double>("~dlo/odomNode/imu/calibTime", this->imu_calib_time_, 3);
   ros::param::param<int>("~dlo/odomNode/imu/bufferSize", this->imu_buffer_size_, 2000);
+  ros::param::param<double>("~dlo/odomNode/imu/alignTime", this->imu_align_Time_, 1);
 
   // GICP
   ros::param::param<int>("~dlo/odomNode/gicp/minNumPoints", this->gicp_min_num_points_, 100);
@@ -579,7 +580,7 @@ void dlo::OdomNode::gravityAlign() {
   Eigen::Vector3f lin_accel = Eigen::Vector3f::Zero();
   const double then = ros::Time::now().toSec();
   int n=0;
-  while ((ros::Time::now().toSec() - then) < 1.) {
+  while ((ros::Time::now().toSec() - then) < this->imu_align_Time_) {
     lin_accel[0] += this->imu_meas.lin_accel.x;
     lin_accel[1] += this->imu_meas.lin_accel.y;
     lin_accel[2] += this->imu_meas.lin_accel.z;

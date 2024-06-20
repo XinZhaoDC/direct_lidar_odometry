@@ -233,8 +233,9 @@ private:
   bool adaptive_params_use_;
 
   bool imu_use_;
-  int imu_calib_time_;
+  double imu_calib_time_;
   int imu_buffer_size_;
+  double imu_align_Time_;
 
   int gicp_min_num_points_;
 

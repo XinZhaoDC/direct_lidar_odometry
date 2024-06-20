@@ -13,7 +13,7 @@ dlo:
 
   adaptiveParams: true
 
-  pcd_save: true
+#  pcd_save: false
   
   imu: true
   gravityAlign: true

@@ -2,7 +2,7 @@
 <launch>
 <!-- Launch file for Livox MID360 LiDAR -->
   <arg name="autorun"     default="false"/>
-  <arg name="bag_file"  default="/home/workspace/data/Shenkan_MLS.bag"/>
+  <arg name="bag_file"  default="/home/workspace/data/Shenkan_MLS_new.bag"/>
 
   <arg name="robot_namespace" default="robot"/>
   <arg name="rviz" default="true"/>
@@ -12,6 +12,7 @@
 
   <arg name="output_frame_body_cloud_topic" default="/frame_body_cloud"/>
   <arg name="output_frame_body_odom_topic" default="/frame_body_odom"/>
+  <arg name="ground_truth_odom_topic" default="/quad_0/lidar_slam/odom"/>
 
 
 
@@ -39,9 +40,13 @@
     <!--param name="image_msg_name"  type="string"   value="/camera0/compressed"/-->
       <!-- Load parameters -->
     <rosparam file="$(find direct_lidar_odometry)/cfg/dlo.yaml" command="load"/>
+    <param name="pcd_save"  type="bool"   value = "true" />
+    <!-- param name="transform"  type="bool"   value = "true" / --> 
     <param name="lidar_msg_name"  type="string"   value="$(arg output_frame_body_cloud_topic)"/>
     <param name="odometry_msg_name"  type="string"   value="$(arg output_frame_body_odom_topic)"/>
+    <param name="ground_truth_odom_msg_name" type="string" value="$(arg ground_truth_odom_topic)"/>
     <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
+    <param name="groundTruthName" type="string" value="$(arg bag_file)_ground_truth.odom"/>
   <node pkg="direct_lidar_odometry" type="generate_block" name="generate_block" output="screen"/>
 
   <!-- DLO Mapping Node -->
@@ -68,5 +73,4 @@
   </group>
 
   
-
 </launch>
