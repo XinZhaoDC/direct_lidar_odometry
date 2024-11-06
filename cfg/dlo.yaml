@@ -16,7 +16,7 @@ dlo:
 #  pcd_save: false
   
   imu: true
-  gravityAlign: true
+  gravityAlign: false
 
   odomNode:
     odom_frame: odom

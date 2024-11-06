@@ -1,0 +1,12 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/whistle/sharefolder_Docker/LOAM/code/DLO/devel/lib/python2.7/dist-packages",
+        "/home/whistle/2_code/1_WS/0_configuration_and_tool/livox_ros_driver/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/whistle/sharefolder_Docker/LOAM/code/DLO/devel/lib/python2.7/dist-packages",
+        "/home/whistle/2_code/1_WS/0_configuration_and_tool/livox_ros_driver/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ]
+}

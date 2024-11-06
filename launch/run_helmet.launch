@@ -2,17 +2,20 @@
 <launch>
 <!-- Launch file for Livox MID360 LiDAR -->
   <arg name="autorun"     default="false"/>
-  <arg name="bag_file"  default="/home/workspace/data/Shenkan_MLS_new.bag"/>
+  <arg name="bag_file"  default="/home/workspace/data/WHU-TLS/third.bag"/>
 
   <arg name="robot_namespace" default="robot"/>
   <arg name="rviz" default="true"/>
 
-  <arg name="input_pointcloud_topic" default="/quad0_pcl_render_node/sensor_cloud"/>
-  <arg name="input_imu_topic" default="/quad_0/imu"/>
+  <!--arg name="input_pointcloud_topic" default="/quad0_pcl_render_node/sensor_cloud"/-->
+  <arg name="input_pointcloud_topic" default="/third/livox_points"/>
+  <!--arg name="input_imu_topic" default="/quad_0/imu"/-->
+  <arg name="input_imu_topic" default="/third/imu/data"/>
 
   <arg name="output_frame_body_cloud_topic" default="/frame_body_cloud"/>
+  <arg name="output_key_frame_cloud_topic" default="/key_frame_cloud"/>
   <arg name="output_frame_body_odom_topic" default="/frame_body_odom"/>
-  <arg name="ground_truth_odom_topic" default="/quad_0/lidar_slam/odom"/>
+  <arg name="ground_truth_odom_topic" default="/ground_truth_odom"/>
 
 
 
@@ -30,7 +33,8 @@
     <remap from="~odom" to="dlo/odom_node/odom"/>
     <remap from="~pose" to="dlo/odom_node/pose"/>
     <remap from="~kfs" to="dlo/odom_node/odom/keyframe"/>
-    <remap from="~keyframe" to="dlo/odom_node/pointcloud/keyframe"/>
+    <!--remap from="~keyframe" to="dlo/odom_node/pointcloud/keyframe"/-->
+    <remap from="~keyframe" to="$(arg output_key_frame_cloud_topic)"/>
     <remap from="~frame_body_cloud" to="$(arg output_frame_body_cloud_topic)"/>
     <remap from="~fb_odom" to="$(arg output_frame_body_odom_topic)"/>
 
@@ -41,11 +45,16 @@
       <!-- Load parameters -->
     <rosparam file="$(find direct_lidar_odometry)/cfg/dlo.yaml" command="load"/>
     <param name="pcd_save"  type="bool"   value = "true" />
+    <param name="odom_save"  type="bool"   value = "true" />
+    <param name="frame_merge_num"  type="int"   value = "50" />
+    <!-- param name="use_key_frame"  type="bool"   value = "true" / -->
     <!-- param name="transform"  type="bool"   value = "true" / --> 
     <param name="lidar_msg_name"  type="string"   value="$(arg output_frame_body_cloud_topic)"/>
+    <param name="key_frame_lidar_msg_name"  type="string"   value="$(arg output_key_frame_cloud_topic)"/>
     <param name="odometry_msg_name"  type="string"   value="$(arg output_frame_body_odom_topic)"/>
     <param name="ground_truth_odom_msg_name" type="string" value="$(arg ground_truth_odom_topic)"/>
     <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
+    <param name="keyFrameFolder"  type="string"   value="$(arg bag_file)_key_frames"/>
     <param name="groundTruthName" type="string" value="$(arg bag_file)_ground_truth.odom"/>
   <node pkg="direct_lidar_odometry" type="generate_block" name="generate_block" output="screen"/>
 
@@ -56,7 +65,8 @@
     <rosparam file="$(find direct_lidar_odometry)/cfg/dlo.yaml" command="load"/>
 
     <!-- Subscriptions -->
-    <remap from="~keyframes" to="dlo/odom_node/pointcloud/keyframe"/>
+    <!--remap from="~keyframes" to="dlo/odom_node/pointcloud/keyframe"/-->
+    <remap from="~keyframes" to="$(arg output_key_frame_cloud_topic)"/>
 
     <!-- Publications -->
     <remap from="~map" to="dlo/map_node/map"/>

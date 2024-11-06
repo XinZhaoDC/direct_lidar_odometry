@@ -17,14 +17,22 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/common/transforms.h>
 
-std::string lidar_topic,odometry_topic,ground_truth_odom_topic,dataFolder,groundTruthName;
-bool pcd_save;
+std::string lidar_topic, key_frame_lidar_topic, odometry_topic,ground_truth_odom_topic,dataFolder,keyFrameFolder, groundTruthName;
+bool pcd_save, odom_save, use_key_frame;
 //bool transform;
 
 std::queue<nav_msgs::Odometry::ConstPtr> odom_buf;
-std::queue<sensor_msgs::PointCloud2::ConstPtr> pcl_buf;
+std::queue<sensor_msgs::PointCloud2::ConstPtr> pcl_buf, key_frame_pcl_buf;
 std::queue<nav_msgs::Odometry::ConstPtr> ground_truth_odom_buf;
 std::mutex bufMutex;
+int frame_merge_num;
+
+void key_frame_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg){
+    bufMutex.lock();
+    // ROS_INFO("receive pcl");
+    key_frame_pcl_buf.push(msg);
+    bufMutex.unlock();
+}
 
 void pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) 
 {
@@ -157,6 +165,7 @@ void process()
     ros::Rate rate(100);
     std::vector<nav_msgs::Odometry> currentOdoMsg;
     std::vector<sensor_msgs::PointCloud2> currentPclMsg;
+    std::vector<sensor_msgs::PointCloud2> currentKeyFramePclMsg;
     while (ros::ok()) {
         bufMutex.lock();///lock before access Buf
 
@@ -167,22 +176,74 @@ void process()
             currentPclMsg.push_back(*pcl_buf.front());
             pcl_buf.pop();
 
-        // next image
-            if(currentOdoMsg.size() >= 10)
+            // next image
+            if(currentOdoMsg.size() >= frame_merge_num)
             {
-               // save process
-               transformAndOutput(currentOdoMsg,currentPclMsg);
-               currentOdoMsg.clear();
-               currentPclMsg.clear();
-            }
-            
+            // save process
+            transformAndOutput(currentOdoMsg,currentPclMsg);
+            currentOdoMsg.clear();
+            currentPclMsg.clear();
+            }           
         }
 
-        
+        if(!key_frame_pcl_buf.empty()){
+            currentKeyFramePclMsg.push_back(*key_frame_pcl_buf.front());
+            key_frame_pcl_buf.pop();
+
+            if(currentKeyFramePclMsg.size()>=frame_merge_num){
+                if(pcd_save){
+                    double currentTime = currentKeyFramePclMsg[0].header.stamp.toSec();
+                    char keyFramePclFileName[256];
+
+                    uint sec = currentTime;
+                    uint nsec = (currentTime-sec)*1e9;
+
+                    // must use the format of sec_nsec
+                    sprintf(keyFramePclFileName,"%s/%d_%d.pcd",keyFrameFolder.c_str(),sec,nsec);
+                    pcl::PointCloud<pcl::PointXYZI>::Ptr all_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+                    for (size_t i = 0; i < currentKeyFramePclMsg.size(); i++){
+                        pcl::PointCloud<pcl::PointXYZI>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+                        pcl::fromROSMsg(currentKeyFramePclMsg[i],*temp_cloud);
+                        *all_cloud += *temp_cloud;
+                    }
+                    pcl::io::savePCDFileBinary<pcl::PointXYZI>(keyFramePclFileName,*all_cloud);
+                    currentKeyFramePclMsg.clear();
+                }
+            }
+        }
+
         bufMutex.unlock();
         rate.sleep();
             
     }
+    if(currentOdoMsg.size() != 0 )
+    {
+        // save process
+        transformAndOutput(currentOdoMsg,currentPclMsg);
+        currentOdoMsg.clear();
+        currentPclMsg.clear();
+    }
+    if(!currentKeyFramePclMsg.empty()){
+        if(pcd_save){
+            double currentTime = currentKeyFramePclMsg[0].header.stamp.toSec();
+            char keyFramePclFileName[256];
+
+            uint sec = currentTime;
+            uint nsec = (currentTime-sec)*1e9;
+
+            // must use the format of sec_nsec
+            sprintf(keyFramePclFileName,"%s/%d_%d.pcd",keyFrameFolder.c_str(),sec,nsec);
+            pcl::PointCloud<pcl::PointXYZI>::Ptr all_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            for (size_t i = 0; i < currentKeyFramePclMsg.size(); i++){
+                pcl::PointCloud<pcl::PointXYZI>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+                pcl::fromROSMsg(currentKeyFramePclMsg[i],*temp_cloud);
+                *all_cloud += *temp_cloud;
+            }
+            pcl::io::savePCDFileBinary<pcl::PointXYZI>(keyFramePclFileName,*all_cloud);
+            currentKeyFramePclMsg.clear();
+        }
+    }
+
 }
 
 int main(int argc, char** argv)
@@ -191,17 +252,27 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
 
     nh.param<std::string>("lidar_msg_name",lidar_topic, "/cloud_registered_body");
+    nh.param<std::string>("key_frame_lidar_msg_name",key_frame_lidar_topic, "/key_frame_cloud_registered_body");
     nh.param<std::string>("odometry_msg_name",odometry_topic, "/Odometry"); 
-    nh.param<std::string>("dataFolder",dataFolder, "/home/iot/workspace/data/frames");
+    nh.param<std::string>("dataFolder",dataFolder, "/home/workspace/data/frames");
+    nh.param<std::string>("keyFrameFolder",keyFrameFolder, "/home/workspace/data/key_frames");
     nh.param<std::string>("ground_truth_odom_msg_name",ground_truth_odom_topic, "/lidar_slam/odom"); 
-    nh.param<std::string>("groundTruthName",groundTruthName, "/home/iot/workspace/data/ground_truth.odom");
+    nh.param<std::string>("groundTruthName",groundTruthName, "/home/workspace/data/ground_truth.odom");
     //nh.param<bool>("dlo/pcd_save",pcd_save,false);
     nh.param<bool>("pcd_save",pcd_save,true);
+    nh.param<bool>("odom_save",odom_save,true);
+    //nh.param<bool>("use_key_frame",use_key_frame,false);
     //nh.param<bool>("transform",transform,false);
+    nh.param<int>("frame_merge_num",frame_merge_num,10);
 
     if(!boost::filesystem::exists(dataFolder))
     {
         boost::filesystem::create_directories(dataFolder);
+    }
+
+    if(!boost::filesystem::exists(keyFrameFolder))
+    {
+        boost::filesystem::create_directories(keyFrameFolder);
     }
 
     /*if(!boost::filesystem::exists(groundTruthFolder))
@@ -209,6 +280,7 @@ int main(int argc, char** argv)
         boost::filesystem::create_directories(groundTruthFolder);
     }*/
 
+    ros::Subscriber sub_key_frame_pcl = nh.subscribe(key_frame_lidar_topic, 200000, key_frame_pcl_cbk);
     ros::Subscriber sub_pcl = nh.subscribe(lidar_topic, 200000, pcl_cbk);
     ros::Subscriber sub_odom = nh.subscribe(odometry_topic, 200000, odom_cbk);
     ros::Subscriber sub_ground_truth_odom=nh.subscribe(ground_truth_odom_topic, 200000, ground_truth_odom_cbk);
